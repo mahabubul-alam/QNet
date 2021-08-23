@@ -26,7 +26,7 @@ class Net(nn.Module):
             dev = qml.device("default.qubit", wires = self.n_qubits) #target pennylane device
             qnode = qml.QNode(self.circuit, dev, interface = 'torch', diff_method = 'adjoint') #circuit
         elif noise == 'hardware':
-            QX_TOKEN = "929e8951d2081e9da2d290c48fc02a9cbd264affbcfc9669a63af613b630a8d545a504adf27d70a6650bf17dfea2fae9400895cb2f0f9f2e4c68466654505723"
+            QX_TOKEN = "XX"
             IBMQ.enable_account(QX_TOKEN)
             dev = qml.device('qiskit.ibmq', wires=self.n_qubits, backend='ibmq_bogota')
             qnode = qml.QNode(self.circuit, dev, interface = 'torch', diff_method = 'parameter-shift') #circuit
