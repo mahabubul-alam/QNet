@@ -34,11 +34,10 @@ class MyCSVDatasetReader(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-            
+
         X = torch.FloatTensor(self.X[idx,:])
         Y = self.Y[idx]
-        sample = {'feature': X, 'label': Y}
-        return sample
+        return {'feature': X, 'label': Y}
 
 
     def get_labels(self):
