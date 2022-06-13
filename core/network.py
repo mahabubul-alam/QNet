@@ -19,7 +19,7 @@ class Net(nn.Module):
         self.n_layers = n_layers #number of layers in a parametric circuit
         self.n_class = n_class #number of classes in the dataset
         self.n_features = n_features #number of features in the dataset
-      
+
         weight_shapes = {'weights': (self.n_layers, self.n_qubits)}
 
         if noise == 0:
@@ -35,9 +35,21 @@ class Net(nn.Module):
             dev = qml.device('qiskit.aer', wires = self.n_qubits, noise_model = noise_model, \
                 shots = shots, basis_gates = noise_model.basis_gates)
             qnode = qml.QNode(self.circuit, dev, interface = 'torch', diff_method = 'parameter-shift') #circuit
-        
-        self.ql = nn.ModuleList([qml.qnn.TorchLayer(qnode, weight_shapes) for i in range(int(n_features/n_qubits)*n_hidden_Q)])
-        self.lr = nn.ModuleList([nn.LeakyReLU(negative_slope=0.2) for i in range(int(n_features/n_qubits)*n_hidden_Q)])
+
+        self.ql = nn.ModuleList(
+            [
+                qml.qnn.TorchLayer(qnode, weight_shapes)
+                for _ in range(int(n_features / n_qubits) * n_hidden_Q)
+            ]
+        )
+
+        self.lr = nn.ModuleList(
+            [
+                nn.LeakyReLU(negative_slope=0.2)
+                for _ in range(int(n_features / n_qubits) * n_hidden_Q)
+            ]
+        )
+
         #self.drops = nn.ModuleList([nn.Dropout(p=0.33) for i in range(int(n_features/n_qubits)*n_hidden_Q)])
         self.fc1 = nn.Linear(n_features, n_class)
 
@@ -54,9 +66,7 @@ class Net(nn.Module):
                     qml.CNOT(wires=[i, (i+1)%self.n_qubits])
             for j in range(self.n_qubits):
                 qml.RY(weights[l, j], wires = j)
-        #qubit pauli-Z expectation values taken as outputs
-        _expectations = [qml.expval(qml.PauliZ(i)) for i in range(self.n_qubits)]
-        return _expectations
+        return [qml.expval(qml.PauliZ(i)) for i in range(self.n_qubits)]
 
     def forward(self, X):
         for hq in range(self.n_hidden_Q):
@@ -77,8 +87,7 @@ class Net(nn.Module):
     @staticmethod
     def get_noise_model():
         device_backend = FakeMelbourne()
-        noise_model = NoiseModel.from_backend(device_backend)
-        return noise_model
+        return NoiseModel.from_backend(device_backend)
     
     @staticmethod
     def get_noise_model_simple(Noise_Scaling_Factor=None):

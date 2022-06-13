@@ -20,25 +20,36 @@ class QNet:
 
         assert os.path.isfile(datafilepath)
         assert noise is float or int and (noise >= 0)
-        
+
         self.dataset = CSVDataset(datafilepath, PCA)
         if int(PCA) > 0:
-            self.out_prefix = datafilepath.split('/')[-1].split('.')[0] + '_{}PC'.format(PCA)
+            self.out_prefix = datafilepath.split('/')[-1].split('.')[0] + f'_{PCA}PC'
         else:
             self.out_prefix = datafilepath.split('/')[-1].split('.')[0]
         self.out_prefix = 'results' + '/' + self.out_prefix
 
         self.out_repeat_id = None
         self.n_class = self.dataset.get_number_of_class()
-        
+
         self.n_features = self.dataset.get_number_of_features()
         self.n_qubits = n_qubits
         assert self.n_features%self.n_qubits == 0
 
         self.n_layers = n_layers
         self.n_hidden_Q = n_hidden_Q
-        self.outdir = self.out_prefix + '/' + self.out_prefix + '_' + str(self.n_hidden_Q) + \
-            'H_' + str(int(self.n_qubits)) + 'Q_' + str(int(self.n_layers)) + 'L'
+        self.outdir = (
+            (
+                (
+                    f'{self.out_prefix}/{self.out_prefix}_{str(self.n_hidden_Q)}'
+                    + 'H_'
+                )
+                + str(int(self.n_qubits))
+                + 'Q_'
+            )
+            + str(int(self.n_layers))
+            + 'L'
+        )
+
         os.makedirs(self.outdir, exist_ok = True)
 
         self.noise = noise
@@ -124,11 +135,11 @@ class QNet:
                 loss = self.loss_fun(output,y)
                 loss.backward()
                 self.optimizer.step()
-                
+
                 tr_loss = tr_loss + loss.data.cpu().numpy()
                 y_trues += y.cpu().numpy().tolist()
                 y_preds += output.data.cpu().numpy().argmax(axis = 1).tolist()
-            
+
             accs = accuracy_score(y_trues, y_preds)
             tr_accs.append(accs)
             cnf = confusion_matrix(y_trues, y_preds)
@@ -136,8 +147,8 @@ class QNet:
             tr_losses.append(tr_loss)
 
             print(cnf)
-            print('Epoch: {} TR_Loss: {} TR_Accs: {}'.format(epoch, tr_loss, accs))
-            print('Time per training epoch: {}'.format(time.time() - t1))
+            print(f'Epoch: {epoch} TR_Loss: {tr_loss} TR_Accs: {accs}')
+            print(f'Time per training epoch: {time.time() - t1}')
 
             self.Network.eval()
             test_loss = 0
@@ -153,11 +164,11 @@ class QNet:
                 with torch.no_grad():
                     output = self.Network(data)
                     loss = self.loss_fun(output,y)
-                
+
                 test_loss = test_loss + loss.data.cpu().numpy()
                 y_trues += y.cpu().numpy().tolist()
                 y_preds += output.data.cpu().numpy().argmax(axis = 1).tolist()
-            
+
             accs = accuracy_score(y_trues, y_preds)
             test_accs.append(accs)
             cnf = confusion_matrix(y_trues, y_preds)
@@ -165,17 +176,48 @@ class QNet:
             test_losses.append(test_loss)
 
             print(cnf)
-            print('Epoch: {} TEST_Loss: {} TEST_Accs: {}'.format(epoch, test_loss, accs))
+            print(f'Epoch: {epoch} TEST_Loss: {test_loss} TEST_Accs: {accs}')
 
 
 
-        np.save(self.outdir + '/'+ 'trainset_cost_{}'.format(self.noise) + '_{}'.format(str(self.out_repeat_id)) + '.npy', np.array(tr_losses))
-        np.save(self.outdir + '/'+ 'trainset_accs_{}'.format(self.noise) + '_{}'.format(str(self.out_repeat_id)) + '.npy', np.array(tr_accs))
-        
-        torch.save(self.Network.state_dict(),self.outdir+'/' + 'train_model'+'_{}'.format(str(self.out_repeat_id)))
+        np.save(
+            f'{self.outdir}/'
+            + f'trainset_cost_{self.noise}'
+            + f'_{str(self.out_repeat_id)}'
+            + '.npy',
+            np.array(tr_losses),
+        )
 
-        np.save(self.outdir + '/' + 'testset_cost_{}'.format(self.noise) + '_{}'.format(str(self.out_repeat_id)) + '.npy', np.array(test_losses))
-        np.save(self.outdir + '/' + 'testset_accs_{}'.format(self.noise) + '_{}'.format(str(self.out_repeat_id)) + '.npy', np.array(test_accs))
+        np.save(
+            f'{self.outdir}/'
+            + f'trainset_accs_{self.noise}'
+            + f'_{str(self.out_repeat_id)}'
+            + '.npy',
+            np.array(tr_accs),
+        )
+
+
+        torch.save(
+            self.Network.state_dict(),
+            f'{self.outdir}/train_model' + f'_{str(self.out_repeat_id)}',
+        )
+
+
+        np.save(
+            f'{self.outdir}/'
+            + f'testset_cost_{self.noise}'
+            + f'_{str(self.out_repeat_id)}'
+            + '.npy',
+            np.array(test_losses),
+        )
+
+        np.save(
+            f'{self.outdir}/'
+            + f'testset_accs_{self.noise}'
+            + f'_{str(self.out_repeat_id)}'
+            + '.npy',
+            np.array(test_accs),
+        )
 
         
     def test_network(self):
@@ -185,8 +227,15 @@ class QNet:
         for repeat_id in range(self.repeat):
             self.out_repeat_id = repeat_id
             try:
-                self.Network.load_state_dict(torch.load(self.outdir+'/' + \
-                    'train_model'+'_{}'.format(str(self.out_repeat_id))))
+                self.Network.load_state_dict(
+                    torch.load(
+                        (
+                            (f'{self.outdir}/' + 'train_model')
+                            + f'_{str(self.out_repeat_id)}'
+                        )
+                    )
+                )
+
             except:
                 return
             self.inference()
@@ -210,28 +259,67 @@ class QNet:
             with torch.no_grad():
                 output = self.Network(data)
                 loss = self.loss_fun(output, y)               
-            
+
             test_loss = test_loss + loss.data.cpu().numpy()
             y_trues += y.cpu().numpy().tolist()
             y_preds += output.data.cpu().numpy().argmax(axis = 1).tolist()
-        
+
         accs = accuracy_score(y_trues, y_preds)
         cnf = confusion_matrix(y_trues, y_preds)
         test_loss = test_loss/(i + 1)
 
         print(cnf)
-        print('Test_Loss: {} Test_Accs: {}'.format(test_loss, accs))
-        
+        print(f'Test_Loss: {test_loss} Test_Accs: {accs}')
+
         if list(ids) == list(self.train_ids):
-            np.save(self.outdir + '/' + 'inference_under_noise_{}_trainset_cost'.format(self.noise) + \
-                '_{}'.format(str(self.out_repeat_id))+'.npy', np.array(test_loss))
-            np.save(self.outdir + '/' + 'inference_under_noise_{}_trainset_accs'.format(self.noise) + \
-                '_{}'.format(str(self.out_repeat_id))+'.npy', np.array(accs))
+            np.save(
+                (
+                    (
+                        f'{self.outdir}/'
+                        + f'inference_under_noise_{self.noise}_trainset_cost'
+                        + f'_{str(self.out_repeat_id)}'
+                    )
+                    + '.npy'
+                ),
+                np.array(test_loss),
+            )
+
+            np.save(
+                (
+                    (
+                        f'{self.outdir}/'
+                        + f'inference_under_noise_{self.noise}_trainset_accs'
+                        + f'_{str(self.out_repeat_id)}'
+                    )
+                    + '.npy'
+                ),
+                np.array(accs),
+            )
+
         elif list(ids) == list(self.test_ids):
-            np.save(self.outdir + '/' + 'inference_under_noise_{}_testset_cost'.format(self.noise) + \
-                '_{}'.format(str(self.out_repeat_id))+'.npy', np.array(test_loss))
-            np.save(self.outdir + '/' + 'inference_under_noise_{}_testset_accs'.format(self.noise) + \
-                '_{}'.format(str(self.out_repeat_id))+'.npy', np.array(accs))
+            np.save(
+                (
+                    (
+                        f'{self.outdir}/'
+                        + f'inference_under_noise_{self.noise}_testset_cost'
+                        + f'_{str(self.out_repeat_id)}'
+                    )
+                    + '.npy'
+                ),
+                np.array(test_loss),
+            )
+
+            np.save(
+                (
+                    (
+                        f'{self.outdir}/'
+                        + f'inference_under_noise_{self.noise}_testset_accs'
+                        + f'_{str(self.out_repeat_id)}'
+                    )
+                    + '.npy'
+                ),
+                np.array(accs),
+            )
 
     
     def inference(self):
